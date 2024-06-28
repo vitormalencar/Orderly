@@ -1,6 +1,6 @@
 # Orderly 🧹
 
-![Orderly Logo](logo.png) Add a logo if you have one
+![Orderly Logo](logo.png)
 
 Orderly is a command-line tool written in Rust for automating the organization of files on your macOS system. Inspired by Hazel, Orderly allows users to define rules and actions to keep their files neat and tidy 🧹
 
