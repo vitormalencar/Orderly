@@ -1,31 +1,82 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Rule {
     pub name: String,
     pub description: String,
+    pub folders: Vec<Folder>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Folder {
+    pub path: String,
+    pub match_type: String,
+    pub rules: Vec<FolderRule>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FolderRule {
+    pub name: String,
+    pub conditions: Vec<Condition>,
     pub actions: Vec<Action>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct Action {
-    pub name: String,
-    pub path: String,
-    pub condition: Condition,
-    pub action: String,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Condition {
-    pub r#type: String,
-    pub size: Option<String>,
-    pub extension: Option<String>,
-    pub date: Option<String>,
+    pub condition_type: String,
+    pub value: String,
 }
 
-pub fn load_rules(path: &str) -> Vec<Rule> {
-    let content = fs::read_to_string(path).expect("Unable to read file");
-    let rules: Vec<Rule> = serde_yaml::from_str(&content).expect("Unable to parse YAML");
-    rules
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Action {
+    pub action_type: String,
+    pub path: Option<String>,
+}
+
+pub fn load_config(path: &str) -> Result<Rule, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(path)?;
+    let rule: Rule = serde_yaml::from_str(&content)?;
+    Ok(rule)
+}
+
+pub fn create_example_rule() -> std::io::Result<()> {
+    let example_rule = Rule {
+        name: "Example Rule".into(),
+        description: "An example rule for organizing files".into(),
+        folders: vec![Folder {
+            path: "./test_folder".into(),
+            match_type: "all".into(),
+            rules: vec![
+                FolderRule {
+                    name: "Delete delete_me.png".into(),
+                    conditions: vec![Condition {
+                        condition_type: "name".into(),
+                        value: "delete_me.png".into(),
+                    }],
+                    actions: vec![Action {
+                        action_type: "delete".into(),
+                        path: None,
+                    }],
+                },
+                FolderRule {
+                    name: "Move move_me.png".into(),
+                    conditions: vec![Condition {
+                        condition_type: "name".into(),
+                        value: "move_me.png".into(),
+                    }],
+                    actions: vec![Action {
+                        action_type: "move".into(),
+                        path: Some("./test_folder/organized".into()),
+                    }],
+                },
+            ],
+        }],
+    };
+
+    let yaml = serde_yaml::to_string(&example_rule).unwrap();
+    let mut file = fs::File::create("rules/example.yaml")?;
+    file.write_all(yaml.as_bytes())?;
+    Ok(())
 }

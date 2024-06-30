@@ -1,13 +1,13 @@
-
-      name: Example Rule
-      description: An example rule for organizing files
-      actions:
-        - name: Move to Trash
-          path: ~/.Trash
-          condition:
-            type: file
-            size: 100MB
-          action:
-            type: move
-            path: ~/.Trash
-    
+name: Example Rule
+description: An example rule for organizing files
+folders:
+- path: ./test_folder
+  match_type: all
+  rules:
+  - name: Move move_me.png
+    conditions:
+    - condition_type: name
+      value: move_me.png
+    actions:
+    - action_type: move
+      path: ./test_folder/organized

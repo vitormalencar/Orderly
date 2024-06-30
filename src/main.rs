@@ -1,68 +1,68 @@
-use std::{fs, path::PathBuf};
+mod actions;
+mod config;
 
-use clap::{Parser, Subcommand};
-
-#[derive(Parser)]
-#[clap(name = "orderly")]
-#[clap(about = "A CLI tool for organizing files", long_about = None)]
-struct Cli {
-    #[clap(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Initialize Orderly in a directory
-    Init,
-    /// Run Orderly to apply rules
-    Run,
-}
+use clap::{App, Arg};
+use log::{error, info};
+use simplelog::{Config as LogConfig, LevelFilter, SimpleLogger};
 
 fn main() {
-    let cli = Cli::parse();
+    SimpleLogger::init(LevelFilter::Info, LogConfig::default()).unwrap();
 
-    match &cli.command {
-        Commands::Init => {
-            println!("Initializing Orderly...");
-            initialize_orderly();
+    let matches = App::new("Orderly")
+        .version("1.0")
+        .author("Your Name <your.email@example.com>")
+        .about("Automates file organization")
+        .arg(Arg::new("init").short('i').long("init"))
+        .arg(Arg::new("run").short('r').long("run"))
+        .get_matches();
+
+    if matches.is_present("init") {
+        info!("Initializing Orderly...");
+        config::create_example_rule().expect("Failed to create example rule");
+    }
+
+    if matches.is_present("run") {
+        info!("Running Orderly...");
+        match config::load_config("rules/example.yaml") {
+            Ok(config) => {
+                info!("Config loaded: {:#?}", config);
+                for folder in config.folders {
+                    for rule in &folder.rules {
+                        for condition in &rule.conditions {
+                            if condition.condition_type == "name" {
+                                let src_path = format!("{}/{}", folder.path, condition.value);
+                                if condition.value == "delete_me.png" {
+                                    for action in &rule.actions {
+                                        if action.action_type == "delete" {
+                                            info!("Deleting file: {}", src_path);
+                                            match actions::delete_file(&src_path) {
+                                                Ok(_) => info!("File deleted successfully"),
+                                                Err(e) => error!("Failed to delete file: {}", e),
+                                            }
+                                        }
+                                    }
+                                } else if condition.value == "move_me.png" {
+                                    for action in &rule.actions {
+                                        if action.action_type == "move" {
+                                            let dest_path = action
+                                                .path
+                                                .as_ref()
+                                                .unwrap()
+                                                .replace("~", &std::env::var("HOME").unwrap());
+                                            info!("Moving file from {} to {}", src_path, dest_path);
+                                            match actions::move_file(&src_path, &dest_path) {
+                                                Ok(_) => info!("File moved successfully"),
+                                                Err(e) => error!("Failed to move file: {}", e),
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => error!("Error loading config: {}", e),
         }
-        Commands::Run => {
-            println!("Running Orderly...");
-            // Add your run logic here
-        }
     }
-}
-
-fn initialize_orderly() {
-    //  just create the directory rules inside the current path
-    let config_dir = PathBuf::from("./");
-    let rules_dir = config_dir.join("rules");
-
-    if let Err(e) = fs::create_dir_all(&rules_dir) {
-        eprintln!("Failed to create directories: {}", e);
-        return;
-    }
-
-    let example_rule = r#"
-  name: Example Rule
-  description: An example rule for organizing files
-  actions:
-    - name: Move to Trash
-      path: ~/.Trash
-      condition:
-        type: file
-        size: 100MB
-      action:
-        type: move
-        path: ~/.Trash
-  "#;
-
-    let example_rule_path = rules_dir.join("example.yaml");
-
-    if let Err(e) = fs::write(&example_rule_path, example_rule) {
-        eprintln!("Failed to write example rule: {}", e);
-        return;
-    }
-
-    println!("Orderly initialized successfully.");
 }
