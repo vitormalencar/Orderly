@@ -7,9 +7,18 @@ Orderly is a command-line tool written in Rust for automating the organization o
 ## Features
 
 - Rule-based file organization
-- Support for various file actions (move, copy, rename, delete)
-- Condition-based rules (file type, date, size, etc.)
+- Folder-specific rules
+- Support for various file actions (move, copy, rename, delete, etc.)
+- Condition-based rules (file type, date, size, name, etc.)
 - Easy to use CLI interface
+
+## Installation
+
+To install Orderly, ensure you have Rust installed on your system. Then run the following command:
+
+```bash
+cargo install orderly
+
 
 ## Installation
 
@@ -63,17 +72,50 @@ The `orderly.yaml` file supports various conditions and actions:
 
 ### Conditions
 
-- **extension**: Match files by their extension
-- **size**: Match files by their size
-- **date**: Match files by their creation or modification date
-- **name**: Match files by their name pattern
+- **extension**: 
+  - contains
+  - does not contain
+- **name**:
+  - contains
+  - does not contain
+  - starts with
+  - ends with
+  - matches regex
+  - does not match regex
+  - is
+  - is not
+- **size**:
+  - is
+  - is not
+  - less than
+  - greater than
+  - between
+  - not between
+- **date**:
+  - is
+  - is not
+  - before
+  - after
+- **kind**:
+  - is
+  - is not
 
 ### Actions
 
 - **move**: Move files to a specified directory
 - **copy**: Copy files to a specified directory
-- **rename**: Rename files using a pattern
 - **delete**: Delete files
+- **create**: Create files or directories
+- **rename**: Rename files using a pattern
+- **set tag**: Set tags on files
+- **remove tag**: Remove tags from files
+- **sort into subfolder**: Sort files into subfolders
+  - by pattern
+  - by date
+  - by size
+  - by name
+  - by kind
+  - by extension
 
 ## Contributing
 
