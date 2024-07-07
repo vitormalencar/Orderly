@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+chrono = "0.4.38"
 clap = { version = "3.0", features = ["derive"] }
 log = "0.4.22"
+notify = { version = "6.1.1", features = ["serde"] }
+
 serde = "1.0.203"
 serde_yaml = "0.9.34"
 simple-log = "1.6.0"

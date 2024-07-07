@@ -1,48 +1,76 @@
-name: Example Rule
-description: An example rule for organizing files
+name: Orderly Sandbox Rules
+description: Rules for organizing files in the sandbox environment
 folders:
-- path: ./test_folder
-  match_type: all
-  rules:
-  - name: Move move_me.png
-    conditions:
-    - condition_type: name
-      value: move_me.png
-    actions:
-    - action_type: move
-      path: ./test_folder/organized
-  - name: Move move_me_missing_folder.png
-    conditions:
-    - condition_type: name
-      value: move_me_missing_folder.png
-    actions:
-    - action_type: move
-      path: ./test_folder/organized/move/missing_folder
-  - name: Copy copy_me.png
-    conditions:
-    - condition_type: name
-      value: copy_me.png
-    actions:
-    - action_type: copy
-      path: ./test_folder/organized
-  - name: Copy copy_me_missing_folder.png
-    conditions:
-    - condition_type: name
-      value: copy_me_missing_folder.png
-    actions:
-    - action_type: copy
-      path: ./test_folder/organized/copy/missing_folder
-  - name: Delete delete_me.png
-    conditions:
-    - condition_type: name
-      value: delete_me.png
-    actions:
-    - action_type: delete
-      path: null
-  - name: Create create_me.png
-    conditions:
-    - condition_type: name
-      value: create_me.png
-    actions:
-    - action_type: create
-      path: ./test_folder/organized
+  - path: test_folder/Desktop
+    match_type: all
+    rules:
+      - name: Move all files to Downloads
+        conditions:
+          - condition_type: always
+            value: ""
+        actions:
+          - action_type: move
+            path: test_folder/Downloads
+
+  - path: test_folder/Downloads
+    match_type: all
+    rules:
+      - name: Move music files to Music folder
+        conditions:
+          - condition_type: extension
+            value: mp3,flac,wav,ogg,m4a,wma,aac,aiff,aif
+        actions:
+          - action_type: move
+            path: test_folder/Music
+
+      - name: Move video files to Videos folder
+        conditions:
+          - condition_type: extension
+            value: mp4,mov,avi,wmv,mkv
+        actions:
+          - action_type: move
+            path: test_folder/Videos
+
+      - name: Move document files to Documents folder
+        conditions:
+          - condition_type: extension
+            value: pdf,txt,doc,docx,xls,xlsx,ppt,pptx
+        actions:
+          - action_type: move
+            path: test_folder/Documents
+
+      - name: Move picture files to Pictures folder
+        conditions:
+          - condition_type: extension
+            value: jpg,png,gif
+        actions:
+          - action_type: move
+            path: test_folder/Pictures
+
+  - path: test_folder/Pictures
+    match_type: all
+    rules:
+      - name: Move wallpapers to Wallpapers subfolder
+        conditions:
+          - condition_type: name_contains
+            value: wallpaper
+        actions:
+          - action_type: move
+            path: test_folder/Pictures/Wallpapers
+
+      - name: Move screenshots to Screenshots subfolder
+        conditions:
+          - condition_type: name_contains
+            value: screenshot
+        actions:
+          - action_type: move
+            path: test_folder/Pictures/Screenshots
+
+      - name: Sort images into year/month subfolders
+        conditions:
+          - condition_type: extension
+            value: jpg,png,gif
+        actions:
+          - action_type: sort_by_date
+            path: test_folder/Pictures
+            pattern: "%Y/%b"

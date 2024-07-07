@@ -33,6 +33,7 @@ pub struct Condition {
 pub struct Action {
     pub action_type: String,
     pub path: Option<String>,
+    pub pattern: Option<String>,  // Added pattern field
 }
 
 pub fn load_config(path: &str) -> Result<Rule, Box<dyn std::error::Error>> {
@@ -58,6 +59,7 @@ pub fn create_example_rule() -> std::io::Result<()> {
                     actions: vec![Action {
                         action_type: "move".into(),
                         path: Some("./test_folder/organized".into()),
+                        pattern: None,
                     }],
                 },
                 FolderRule {
@@ -69,6 +71,7 @@ pub fn create_example_rule() -> std::io::Result<()> {
                     actions: vec![Action {
                         action_type: "move".into(),
                         path: Some("./test_folder/organized/move/missing_folder".into()),
+                        pattern: None,
                     }],
                 },
                 FolderRule {
@@ -80,6 +83,7 @@ pub fn create_example_rule() -> std::io::Result<()> {
                     actions: vec![Action {
                         action_type: "copy".into(),
                         path: Some("./test_folder/organized".into()),
+                        pattern: None,
                     }],
                 },
                 FolderRule {
@@ -91,6 +95,7 @@ pub fn create_example_rule() -> std::io::Result<()> {
                     actions: vec![Action {
                         action_type: "copy".into(),
                         path: Some("./test_folder/organized/copy/missing_folder".into()),
+                        pattern: None,
                     }],
                 },
                 FolderRule {
@@ -102,6 +107,19 @@ pub fn create_example_rule() -> std::io::Result<()> {
                     actions: vec![Action {
                         action_type: "delete".into(),
                         path: None,
+                        pattern: None,
+                    }],
+                },
+                FolderRule {
+                    name: "Sort images by date".into(),
+                    conditions: vec![Condition {
+                        condition_type: "extension".into(),
+                        value: "jpg,png,gif".into(),
+                    }],
+                    actions: vec![Action {
+                        action_type: "sort_by_date".into(),
+                        path: Some("./test_folder/sorted_by_date".into()),
+                        pattern: Some("%Y/%m".into()),
                     }],
                 },
             ],
