@@ -45,44 +45,67 @@ pub fn create_example_rule() -> std::io::Result<()> {
     let example_rule = Rule {
         name: "Example Rule".into(),
         description: "An example rule for organizing files".into(),
-        folders: vec![
-            Folder {
-                path: "./test_folder".into(),
-                match_type: "all".into(),
-                rules: vec![
-                    FolderRule {
-                        name: "Move move_me.png".into(),
-                        conditions: vec![
-                            Condition {
-                                condition_type: "name".into(),
-                                value: "move_me.png".into(),
-                            },
-                        ],
-                        actions: vec![
-                            Action {
-                                action_type: "move".into(),
-                                path: Some("./test_folder/organized".into()),
-                            },
-                        ],
-                    },
-                    FolderRule {
-                        name: "Delete delete_me.png".into(),
-                        conditions: vec![
-                            Condition {
-                                condition_type: "name".into(),
-                                value: "delete_me.png".into(),
-                            },
-                        ],
-                        actions: vec![
-                            Action {
-                                action_type: "delete".into(),
-                                path: None,
-                            },
-                        ],
-                    },
-                ],
-            },
-        ],
+        folders: vec![Folder {
+            path: "./test_folder".into(),
+            match_type: "all".into(),
+            rules: vec![
+                FolderRule {
+                    name: "Move move_me.png".into(),
+                    conditions: vec![Condition {
+                        condition_type: "name".into(),
+                        value: "move_me.png".into(),
+                    }],
+                    actions: vec![Action {
+                        action_type: "move".into(),
+                        path: Some("./test_folder/organized".into()),
+                    }],
+                },
+                FolderRule {
+                    name: "Move move_me_missing_folder.png".into(),
+                    conditions: vec![Condition {
+                        condition_type: "name".into(),
+                        value: "move_me_missing_folder.png".into(),
+                    }],
+                    actions: vec![Action {
+                        action_type: "move".into(),
+                        path: Some("./test_folder/organized/move/missing_folder".into()),
+                    }],
+                },
+                FolderRule {
+                    name: "Copy copy_me.png".into(),
+                    conditions: vec![Condition {
+                        condition_type: "name".into(),
+                        value: "copy_me.png".into(),
+                    }],
+                    actions: vec![Action {
+                        action_type: "copy".into(),
+                        path: Some("./test_folder/organized".into()),
+                    }],
+                },
+                FolderRule {
+                    name: "Copy copy_me_missing_folder.png".into(),
+                    conditions: vec![Condition {
+                        condition_type: "name".into(),
+                        value: "copy_me_missing_folder.png".into(),
+                    }],
+                    actions: vec![Action {
+                        action_type: "copy".into(),
+                        path: Some("./test_folder/organized/copy/missing_folder".into()),
+                    }],
+                },
+                FolderRule {
+                    name: "Delete delete_me.png".into(),
+                    conditions: vec![Condition {
+                        condition_type: "name".into(),
+                        value: "delete_me.png".into(),
+                    }],
+                    actions: vec![Action {
+                        action_type: "delete".into(),
+                        path: None,
+                    }],
+                },
+            ],
+        }],
     };
 
     let yaml = serde_yaml::to_string(&example_rule).unwrap();

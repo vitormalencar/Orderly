@@ -1,8 +1,6 @@
 mod actions;
 mod config;
-mod util;
 use crate::config::{Action, FolderRule};
-
 
 use clap::{App, Arg};
 use log::{error, info};
@@ -60,6 +58,7 @@ pub fn handle_conditions(folder_path: &str, rule: &FolderRule) {
                 match action.action_type.as_str() {
                     "delete" => handle_delete(&src_path),
                     "move" => handle_move(&src_path, action),
+                    "copy" => handle_copy(&src_path, action),
                     _ => error!("Unknown action type: {}", action.action_type),
                 }
             }
@@ -85,5 +84,18 @@ fn handle_move(src_path: &str, action: &Action) {
     match actions::move_file(src_path, &dest_path) {
         Ok(_) => info!("File moved successfully"),
         Err(e) => error!("Failed to move file: {}", e),
+    }
+}
+
+fn handle_copy(src_path: &str, action: &Action) {
+    let dest_path = action
+        .path
+        .as_ref()
+        .unwrap()
+        .replace("~", &env::var("HOME").unwrap());
+    info!("Copying file from {} to {}", src_path, dest_path);
+    match actions::copy_file(src_path, &dest_path) {
+        Ok(_) => info!("File copied successfully"),
+        Err(e) => error!("Failed to copy file: {}", e),
     }
 }

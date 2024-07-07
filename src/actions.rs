@@ -37,6 +37,7 @@ pub fn move_file(src: &str, dest: &str) -> Result<()> {
     let src_path = Path::new(src);
     let mut dest_path = Path::new(dest).to_path_buf();
 
+    // Frist check if the destination path exists
     ensure_directory_exists(&dest_path)?;
 
     // Append the file name to the destination path if it's a directory
@@ -51,5 +52,25 @@ pub fn delete_file(path: &str) -> Result<()> {
     trash::delete(Path::new(path))
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
     info!("Deleted file {}", path);
+    Ok(())
+}
+
+pub fn copy_file(src: &str, dest: &str) -> Result<()> {
+    let src_path = Path::new(src);
+    let mut dest_path = Path::new(dest).to_path_buf();
+
+    ensure_directory_exists(&dest_path)?;
+
+    // Append the file name to the destination path if it's a directory
+    if dest_path.is_dir() {
+        dest_path = dest_path.join(src_path.file_name().unwrap());
+    }
+    // copy
+    fs::copy(src_path, &dest_path)?;
+    info!(
+        "Copied file from {} to {}",
+        src_path.display(),
+        dest_path.display()
+    );
     Ok(())
 }
