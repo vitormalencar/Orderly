@@ -20,7 +20,18 @@ echo "Created directory: test_folder/organized"
 touch test_folder/delete_me.png
 echo "Created file: test_folder/delete_me.png"
 
+# add test to when a move is needed but the destination folder doesn't exist
+touch test_folder/move_me_missing_folder.png
+
+# add test to when a move is needed and the destination folder exists
 touch test_folder/move_me.png
 echo "Created file: test_folder/move_me.png"
+
+# add test to when a copy is needed but the destination folder doesn't exist
+touch test_folder/copy_me_missing_folder.png
+
+# add test to when a copy is needed and the destination folder exists
+touch test_folder/copy_me.png
+echo "Created file: test_folder/copy_me.png"
 
 echo "Setup complete."
