@@ -59,6 +59,9 @@ fn run_orderly() {
 }
 
 fn watch_orderly() {
+    info!("Running initial organization...");
+    run_orderly(); // Perform the initial run
+
     info!("Watching for changes...");
     match config::load_config("rules/example.yaml") {
         Ok(config) => {
@@ -88,7 +91,6 @@ fn watch_orderly() {
         Err(e) => error!("Error loading config: {}", e),
     }
 }
-
 
 fn handle_conditions(folder_path: &str, rule: &FolderRule) {
     let folder = Path::new(folder_path);
