@@ -33,7 +33,7 @@ pub struct Condition {
 pub struct Action {
     pub action_type: String,
     pub path: Option<String>,
-    pub pattern: Option<String>,  // Added pattern field
+    pub pattern: Option<String>, // Added pattern field
 }
 
 pub fn load_config(path: &str) -> Result<Rule, Box<dyn std::error::Error>> {
@@ -44,86 +44,134 @@ pub fn load_config(path: &str) -> Result<Rule, Box<dyn std::error::Error>> {
 
 pub fn create_example_rule() -> std::io::Result<()> {
     let example_rule = Rule {
-        name: "Example Rule".into(),
-        description: "An example rule for organizing files".into(),
-        folders: vec![Folder {
-            path: "./test_folder".into(),
-            match_type: "all".into(),
-            rules: vec![
-                FolderRule {
-                    name: "Move move_me.png".into(),
+        name: "Orderly Sandbox Rules".into(),
+        description: "Rules for organizing files in the sandbox environment".into(),
+        folders: vec![
+            Folder {
+                path: "test_folder/Desktop".into(),
+                match_type: "all".into(),
+                rules: vec![FolderRule {
+                    name: "Move all files to Downloads".into(),
                     conditions: vec![Condition {
-                        condition_type: "name".into(),
-                        value: "move_me.png".into(),
+                        condition_type: "always".into(),
+                        value: "".into(),
                     }],
                     actions: vec![Action {
                         action_type: "move".into(),
-                        path: Some("./test_folder/organized".into()),
+                        path: Some("test_folder/Downloads".into()),
                         pattern: None,
                     }],
-                },
-                FolderRule {
-                    name: "Move move_me_missing_folder.png".into(),
-                    conditions: vec![Condition {
-                        condition_type: "name".into(),
-                        value: "move_me_missing_folder.png".into(),
-                    }],
-                    actions: vec![Action {
-                        action_type: "move".into(),
-                        path: Some("./test_folder/organized/move/missing_folder".into()),
-                        pattern: None,
-                    }],
-                },
-                FolderRule {
-                    name: "Copy copy_me.png".into(),
-                    conditions: vec![Condition {
-                        condition_type: "name".into(),
-                        value: "copy_me.png".into(),
-                    }],
-                    actions: vec![Action {
-                        action_type: "copy".into(),
-                        path: Some("./test_folder/organized".into()),
-                        pattern: None,
-                    }],
-                },
-                FolderRule {
-                    name: "Copy copy_me_missing_folder.png".into(),
-                    conditions: vec![Condition {
-                        condition_type: "name".into(),
-                        value: "copy_me_missing_folder.png".into(),
-                    }],
-                    actions: vec![Action {
-                        action_type: "copy".into(),
-                        path: Some("./test_folder/organized/copy/missing_folder".into()),
-                        pattern: None,
-                    }],
-                },
-                FolderRule {
-                    name: "Delete delete_me.png".into(),
-                    conditions: vec![Condition {
-                        condition_type: "name".into(),
-                        value: "delete_me.png".into(),
-                    }],
-                    actions: vec![Action {
-                        action_type: "delete".into(),
-                        path: None,
-                        pattern: None,
-                    }],
-                },
-                FolderRule {
-                    name: "Sort images by date".into(),
-                    conditions: vec![Condition {
-                        condition_type: "extension".into(),
-                        value: "jpg,png,gif".into(),
-                    }],
-                    actions: vec![Action {
-                        action_type: "sort_by_date".into(),
-                        path: Some("./test_folder/sorted_by_date".into()),
-                        pattern: Some("%Y/%m".into()),
-                    }],
-                },
-            ],
-        }],
+                }],
+            },
+            Folder {
+                path: "test_folder/Downloads".into(),
+                match_type: "all".into(),
+                rules: vec![
+                    FolderRule {
+                        name: "Move music files to Music folder".into(),
+                        conditions: vec![Condition {
+                            condition_type: "extension".into(),
+                            value: "mp3,flac,wav,ogg,m4a,wma,aac,aiff,aif".into(),
+                        }],
+                        actions: vec![Action {
+                            action_type: "move".into(),
+                            path: Some("test_folder/Music".into()),
+                            pattern: None,
+                        }],
+                    },
+                    FolderRule {
+                        name: "Move video files to Videos folder".into(),
+                        conditions: vec![Condition {
+                            condition_type: "extension".into(),
+                            value: "mp4,mov,avi,wmv,mkv".into(),
+                        }],
+                        actions: vec![Action {
+                            action_type: "move".into(),
+                            path: Some("test_folder/Videos".into()),
+                            pattern: None,
+                        }],
+                    },
+                    FolderRule {
+                        name: "Move document files to Documents folder".into(),
+                        conditions: vec![Condition {
+                            condition_type: "extension".into(),
+                            value: "pdf,txt,doc,docx,xls,xlsx,ppt,pptx".into(),
+                        }],
+                        actions: vec![Action {
+                            action_type: "move".into(),
+                            path: Some("test_folder/Documents".into()),
+                            pattern: None,
+                        }],
+                    },
+                    FolderRule {
+                        name: "Move picture files to Pictures folder".into(),
+                        conditions: vec![Condition {
+                            condition_type: "extension".into(),
+                            value: "jpg,png,gif".into(),
+                        }],
+                        actions: vec![Action {
+                            action_type: "move".into(),
+                            path: Some("test_folder/Pictures".into()),
+                            pattern: None,
+                        }],
+                    },
+                ],
+            },
+            Folder {
+                path: "test_folder/Pictures".into(),
+                match_type: "all".into(),
+                rules: vec![
+                    FolderRule {
+                        name: "Move wallpapers to Wallpapers subfolder".into(),
+                        conditions: vec![Condition {
+                            condition_type: "name_contains".into(),
+                            value: "wallpaper".into(),
+                        }],
+                        actions: vec![Action {
+                            action_type: "move".into(),
+                            path: Some("test_folder/Pictures/Wallpapers".into()),
+                            pattern: None,
+                        }],
+                    },
+                    FolderRule {
+                        name: "Move clearshots to Wallpapers subfolder".into(),
+                        conditions: vec![Condition {
+                            condition_type: "name_contains".into(),
+                            value: "clearshot".into(),
+                        }],
+                        actions: vec![Action {
+                            action_type: "move".into(),
+                            path: Some("test_folder/Pictures/Wallpapers".into()),
+                            pattern: None,
+                        }],
+                    },
+                    FolderRule {
+                        name: "Move screenshots to Screenshots subfolder".into(),
+                        conditions: vec![Condition {
+                            condition_type: "name_contains".into(),
+                            value: "screenshot".into(),
+                        }],
+                        actions: vec![Action {
+                            action_type: "move".into(),
+                            path: Some("test_folder/Pictures/Screenshots".into()),
+                            pattern: None,
+                        }],
+                    },
+                    FolderRule {
+                        name: "Sort images into year/month subfolders".into(),
+                        conditions: vec![Condition {
+                            condition_type: "extension".into(),
+                            value: "jpg,png,gif".into(),
+                        }],
+                        actions: vec![Action {
+                            action_type: "sort_by_date".into(),
+                            path: Some("test_folder/Pictures".into()),
+                            pattern: Some("%Y/%b".into()),
+                        }],
+                    },
+                ],
+            },
+        ],
     };
 
     let yaml = serde_yaml::to_string(&example_rule).unwrap();

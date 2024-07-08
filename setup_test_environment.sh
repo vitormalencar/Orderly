@@ -38,5 +38,8 @@ touch -t 202312121212.12 test_folder/Desktop/wallpaper1.jpg
 touch -t 202301010101.01 test_folder/Desktop/wallpaper2.png
 touch -t 202211111111.11 test_folder/Desktop/screenshot1.png
 touch -t 202210101010.10 test_folder/Desktop/screenshot2.jpg
+touch -t 202212121212.12 test_folder/Desktop/clearshot1.jpg
+touch -t 202213131313.13 test_folder/Desktop/clearshot2.png
+touch -t 202212121212.12 test_folder/Desktop/infinite_loop.txt
 
 echo "Setup complete."

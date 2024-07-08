@@ -1,76 +1,84 @@
 name: Orderly Sandbox Rules
 description: Rules for organizing files in the sandbox environment
 folders:
-  - path: test_folder/Desktop
-    match_type: all
-    rules:
-      - name: Move all files to Downloads
-        conditions:
-          - condition_type: always
-            value: ""
-        actions:
-          - action_type: move
-            path: test_folder/Downloads
-
-  - path: test_folder/Downloads
-    match_type: all
-    rules:
-      - name: Move music files to Music folder
-        conditions:
-          - condition_type: extension
-            value: mp3,flac,wav,ogg,m4a,wma,aac,aiff,aif
-        actions:
-          - action_type: move
-            path: test_folder/Music
-
-      - name: Move video files to Videos folder
-        conditions:
-          - condition_type: extension
-            value: mp4,mov,avi,wmv,mkv
-        actions:
-          - action_type: move
-            path: test_folder/Videos
-
-      - name: Move document files to Documents folder
-        conditions:
-          - condition_type: extension
-            value: pdf,txt,doc,docx,xls,xlsx,ppt,pptx
-        actions:
-          - action_type: move
-            path: test_folder/Documents
-
-      - name: Move picture files to Pictures folder
-        conditions:
-          - condition_type: extension
-            value: jpg,png,gif
-        actions:
-          - action_type: move
-            path: test_folder/Pictures
-
-  - path: test_folder/Pictures
-    match_type: all
-    rules:
-      - name: Move wallpapers to Wallpapers subfolder
-        conditions:
-          - condition_type: name_contains
-            value: wallpaper
-        actions:
-          - action_type: move
-            path: test_folder/Pictures/Wallpapers
-
-      - name: Move screenshots to Screenshots subfolder
-        conditions:
-          - condition_type: name_contains
-            value: screenshot
-        actions:
-          - action_type: move
-            path: test_folder/Pictures/Screenshots
-
-      - name: Sort images into year/month subfolders
-        conditions:
-          - condition_type: extension
-            value: jpg,png,gif
-        actions:
-          - action_type: sort_by_date
-            path: test_folder/Pictures
-            pattern: "%Y/%b"
+- path: test_folder/Desktop
+  match_type: all
+  rules:
+  - name: Move all files to Downloads
+    conditions:
+    - condition_type: always
+      value: ''
+    actions:
+    - action_type: move
+      path: test_folder/Downloads
+      pattern: null
+- path: test_folder/Downloads
+  match_type: all
+  rules:
+  - name: Move music files to Music folder
+    conditions:
+    - condition_type: extension
+      value: mp3,flac,wav,ogg,m4a,wma,aac,aiff,aif
+    actions:
+    - action_type: move
+      path: test_folder/Music
+      pattern: null
+  - name: Move video files to Videos folder
+    conditions:
+    - condition_type: extension
+      value: mp4,mov,avi,wmv,mkv
+    actions:
+    - action_type: move
+      path: test_folder/Videos
+      pattern: null
+  - name: Move document files to Documents folder
+    conditions:
+    - condition_type: extension
+      value: pdf,txt,doc,docx,xls,xlsx,ppt,pptx
+    actions:
+    - action_type: move
+      path: test_folder/Documents
+      pattern: null
+  - name: Move picture files to Pictures folder
+    conditions:
+    - condition_type: extension
+      value: jpg,png,gif
+    actions:
+    - action_type: move
+      path: test_folder/Pictures
+      pattern: null
+- path: test_folder/Pictures
+  match_type: all
+  rules:
+  - name: Move wallpapers to Wallpapers subfolder
+    conditions:
+    - condition_type: name_contains
+      value: wallpaper
+    actions:
+    - action_type: move
+      path: test_folder/Pictures/Wallpapers
+      pattern: null
+  - name: Move clearshots to Wallpapers subfolder
+    conditions:
+    - condition_type: name_contains
+      value: clearshot
+    actions:
+    - action_type: move
+      path: test_folder/Pictures/Wallpapers
+      pattern: null
+  - name: Move screenshots to Screenshots subfolder
+    conditions:
+    - condition_type: name_contains
+      value: screenshot
+    actions:
+    - action_type: move
+      path: test_folder/Pictures/Screenshots
+      pattern: null
+  - name: Sort images into year/month subfolders
+    conditions:
+    - condition_type: extension
+      value: jpg,png,gif
+    actions:
+    - action_type: sort_by_date
+      path: test_folder/Pictures
+      pattern: '%Y/%b'
