@@ -15,6 +15,7 @@ fi
 # Setup new test environment
 echo "Setting up new test environment..."
 mkdir -p test_folder/Desktop
+mkdir -p test_folder/Desktop/images
 mkdir -p test_folder/Downloads
 mkdir -p test_folder/Music
 mkdir -p test_folder/Videos
@@ -41,5 +42,12 @@ touch -t 202210101010.10 test_folder/Desktop/screenshot2.jpg
 touch -t 202212121212.12 test_folder/Desktop/clearshot1.jpg
 touch -t 202213131313.13 test_folder/Desktop/clearshot2.png
 touch -t 202212121212.12 test_folder/Desktop/infinite_loop.txt
+
+# Create test images
+touch -t 202301010101.01 test_folder/Desktop/images/image1.jpg
+touch -t 202302020202.02 test_folder/Desktop/images/image2.png
+touch -t 202303030303.03 test_folder/Desktop/images/image3.gif
+touch -t 202304040404.04 test_folder/Desktop/images/image4.mp4
+touch -t 202305050505.05 test_folder/Desktop/images/image5.pdf
 
 echo "Setup complete."
