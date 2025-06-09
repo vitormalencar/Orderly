@@ -14,7 +14,7 @@ use crate::error::OrderlyError;
 
 use clap::{App, Arg};
 use log::{error, info, warn};
-use notify::{recommended_watcher, RecursiveMode, Watcher};
+use notify::{RecursiveMode, Watcher, recommended_watcher};
 use simplelog::{Config as LogConfig, LevelFilter, SimpleLogger};
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -27,6 +27,8 @@ const MAX_MOVEMENTS: usize = 10;
 
 #[cfg(target_os = "macos")]
 pub const HOME: &str = env!("HOME");
+#[cfg(target_os = "linux")]
+pub const HOME: &str = env!("HOME");
 #[cfg(target_os = "windows")]
 pub const HOME: &str = env!("USERPROFILE");
 
@@ -36,7 +38,7 @@ fn main() -> Result<()> {
     SimpleLogger::init(LevelFilter::Info, LogConfig::default())?;
 
     let matches = App::new("Orderly")
-        .version("1.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .author("Vitor Alencar <vitor.alencar@gmail.com>")
         .about("Automates file organization")
         .arg(Arg::new("init").short('i').long("init"))
@@ -47,21 +49,21 @@ fn main() -> Result<()> {
     if matches.is_present("init") {
         if let Err(e) = init_orderly() {
             error!("Failed to initialize Orderly: {}", e);
-            return Err(e.into());
+            return Err(e);
         }
     }
 
     if matches.is_present("run") {
         if let Err(e) = run_orderly() {
             error!("Failed to run Orderly: {}", e);
-            return Err(e.into());
+            return Err(e);
         }
     }
 
     if matches.is_present("watch") {
         if let Err(e) = watch_orderly() {
             error!("Failed to watch Orderly: {}", e);
-            return Err(e.into());
+            return Err(e);
         }
     }
 
@@ -170,41 +172,39 @@ fn handle_conditions(
         .map(|condition| condition.into())
         .collect::<Vec<Box<dyn conditions::Condition>>>();
 
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let src_path = entry.path();
-            let Some(src_path_str) = src_path.to_str() else {
-                warn!("Skipping path: {}", src_path.display());
-                continue;
-            };
-            let src_path_str = src_path_str.to_string();
+    for entry in entries.flatten() {
+        let src_path = entry.path();
+        let Some(src_path_str) = src_path.to_str() else {
+            warn!("Skipping path: {}", src_path.display());
+            continue;
+        };
+        let src_path_str = src_path_str.to_string();
 
-            if processed_files.contains(&src_path_str) {
-                info!("Skipping already processed file: {}", src_path.display());
-                continue;
-            }
+        if processed_files.contains(&src_path_str) {
+            info!("Skipping already processed file: {}", src_path.display());
+            continue;
+        }
 
-            for cond in &conditions {
-                if cond.evaluate(&src_path) {
-                    processed_files.insert(src_path_str.clone());
+        for cond in &conditions {
+            if cond.evaluate(&src_path) {
+                processed_files.insert(src_path_str.clone());
 
-                    let movement_count = file_movements.entry(src_path_str.clone()).or_insert(0);
-                    *movement_count += 1;
+                let movement_count = file_movements.entry(src_path_str.clone()).or_insert(0);
+                *movement_count += 1;
 
-                    if *movement_count > MAX_MOVEMENTS {
-                        let err = OrderlyError::InfiniteLoop(src_path_str);
-                        warn!("{err:?}");
-                        log_error(&err.to_string());
-                        return err.into();
-                    }
+                if *movement_count > MAX_MOVEMENTS {
+                    let err = OrderlyError::InfiniteLoop(src_path_str);
+                    warn!("{err:?}");
+                    log_error(&err.to_string());
+                    return err.into();
+                }
 
-                    for action in &rule.actions {
-                        if let Err(err) =
-                            execute_action(&src_path, action, processed_files, file_movements)
-                        {
-                            warn!("Failed to execute action: {}", err);
-                            log_error(&format!("Failed to execute action: {}", err));
-                        }
+                for action in &rule.actions {
+                    if let Err(err) =
+                        execute_action(&src_path, action, processed_files, file_movements)
+                    {
+                        warn!("Failed to execute action: {}", err);
+                        log_error(&format!("Failed to execute action: {}", err));
                     }
                 }
             }
@@ -232,7 +232,7 @@ fn handle_delete(src_path: &Path) -> Result<()> {
     info!("Deleting file: {}", src_path.display());
     if let Err(e) = actions::delete_file(src_path) {
         log_error(&format!("Failed to delete file: {}", e));
-        Err(e.into())
+        Err(e)
     } else {
         Ok(())
     }
@@ -245,14 +245,14 @@ fn handle_move(
     file_movements: &mut HashMap<String, usize>,
 ) -> Result<()> {
     let dest_path = match action.path {
-        Some(ref path) => path.replace("~", &HOME),
+        Some(ref path) => path.replace("~", HOME),
         None => return OrderlyError::InvalidPath(action.path.clone()).into(),
     };
 
     info!("Moving file from {} to {}", src_path.display(), dest_path);
     if let Err(e) = actions::move_file(src_path, &dest_path) {
         log_error(&format!("Failed to move file: {}", e));
-        Err(e.into())
+        Err(e)
     } else {
         processed_files.insert(dest_path.clone());
         let dest_path_str = dest_path.to_string();
@@ -269,14 +269,14 @@ fn handle_copy(
     file_movements: &mut HashMap<String, usize>,
 ) -> Result<()> {
     let dest_path = match action.path {
-        Some(ref path) => path.replace("~", &HOME),
+        Some(ref path) => path.replace("~", HOME),
         None => return OrderlyError::InvalidPath(action.path.clone()).into(),
     };
 
     info!("Copying file from {} to {}", src_path.display(), dest_path);
     if let Err(e) = actions::copy_file(src_path, &dest_path) {
         log_error(&format!("Failed to copy file: {}", e));
-        Err(e.into())
+        Err(e)
     } else {
         processed_files.insert(dest_path.clone());
         let dest_path_str = dest_path.to_string();
@@ -292,7 +292,7 @@ fn handle_sort_by_date(
     processed_files: &mut HashSet<String>,
 ) -> Result<()> {
     let base_path = match action.path {
-        Some(ref path) => path.replace("~", &HOME),
+        Some(ref path) => path.replace("~", HOME),
         None => return OrderlyError::InvalidPath(action.path.clone()).into(),
     };
 
@@ -308,12 +308,12 @@ fn handle_sort_by_date(
     );
     if let Err(e) = actions::sort_file_by_date(src_path, &base_path, pattern) {
         log_error(&format!("Failed to sort file by date: {}", e));
-        Err(e.into())
+        Err(e)
     } else {
         let dest_path = Path::new(&base_path).join(match src_path.file_name() {
             Some(path) => path,
             None => {
-                return OrderlyError::InvalidFile(src_path.to_str().map(|s| s.to_string())).into()
+                return OrderlyError::InvalidFile(src_path.to_str().map(|s| s.to_string())).into();
             }
         });
 
