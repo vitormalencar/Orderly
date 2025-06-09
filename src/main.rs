@@ -1,8 +1,10 @@
 mod actions;
 mod conditions;
 mod config;
+mod error;
 use crate::conditions::create_condition;
 use crate::config::{Action, FolderRule};
+use crate::error::OrderlyError;
 
 use clap::{App, Arg};
 use log::{error, info, warn};
@@ -22,7 +24,9 @@ static HOME: &str = env!("HOME");
 #[cfg(target_os = "windows")]
 static HOME: &str = env!("USERPROFILE");
 
-fn main() {
+pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+fn main() -> Result<()> {
     SimpleLogger::init(LevelFilter::Info, LogConfig::default()).unwrap();
 
     let matches = App::new("Orderly")
@@ -43,8 +47,10 @@ fn main() {
     }
 
     if matches.is_present("watch") {
-        watch_orderly();
+        watch_orderly()?;
     }
+
+    Ok(())
 }
 
 fn init_orderly() {
@@ -84,37 +90,35 @@ fn run_orderly() {
     }
 }
 
-fn watch_orderly() {
+fn watch_orderly() -> Result<()> {
     info!("Running initial organization...");
     run_orderly(); // Perform the initial run
 
     info!("Watching for changes...");
-    match config::load_config("rules/example.yaml") {
-        Ok(config) => {
-            let (tx, rx) = channel();
-            let mut watcher = recommended_watcher(move |res| tx.send(res).unwrap()).unwrap();
 
-            for folder in config.folders {
-                let path = Path::new(&folder.path);
-                watcher.watch(path, RecursiveMode::Recursive).unwrap();
-            }
+    let config = config::load_config("rules/example.yaml")?;
 
-            loop {
-                match rx.recv() {
-                    Ok(event) => match event {
-                        Ok(notify::Event { kind, paths, .. }) => {
-                            for path in paths {
-                                info!("File change detected: {:?}, {:?}", path, kind);
-                            }
-                            run_orderly();
-                        }
-                        Err(e) => error!("Watch error: {:?}", e),
-                    },
-                    Err(e) => error!("Watch error: {:?}", e),
+    let (tx, rx) = channel();
+    let mut watcher = recommended_watcher(move |res| tx.send(res).unwrap())?;
+
+    for folder in config.folders {
+        let path = Path::new(&folder.path);
+        watcher.watch(path, RecursiveMode::Recursive).unwrap();
+    }
+
+    loop {
+        match rx.recv() {
+            Ok(event) => match event {
+                Ok(notify::Event { kind, paths, .. }) => {
+                    for path in paths {
+                        info!("File change detected: {:?}, {:?}", path, kind);
+                    }
+                    run_orderly();
                 }
-            }
+                Err(e) => error!("Watch error: {:?}", e),
+            },
+            Err(e) => error!("Watch error: {:?}", e),
         }
-        Err(e) => error!("Error loading config: {}", e),
     }
 }
 
@@ -123,12 +127,10 @@ fn handle_conditions(
     rule: &FolderRule,
     processed_files: &mut HashSet<String>,
     file_movements: &mut HashMap<String, usize>,
-) -> Result<(), String> {
+) -> Result<()> {
     let folder = Path::new(folder_path);
     if !folder.exists() {
-        let msg = format!("Directory does not exist: {}", folder.display());
-        error!("{}", msg);
-        return Err(msg);
+        return OrderlyError::DirectoryDoesNotExist(folder_path.into()).into();
     }
 
     let entries = folder.read_dir().map_err(|e| {
@@ -156,13 +158,10 @@ fn handle_conditions(
                     *movement_count += 1;
 
                     if *movement_count > MAX_MOVEMENTS {
-                        let msg = format!(
-                            "Potential infinite loop detected for file: {}",
-                            src_path.display()
-                        );
-                        warn!("{}", msg);
-                        log_error(&msg);
-                        return Err(msg);
+                        let err = OrderlyError::InfiniteLoop(src_path_str);
+                        warn!("{err:?}");
+                        log_error(&err.to_string());
+                        return err.into();
                     }
 
                     for action in &rule.actions {

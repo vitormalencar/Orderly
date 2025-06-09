@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 
+use crate::Result;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Rule {
     pub name: String,
@@ -36,7 +38,7 @@ pub struct Action {
     pub pattern: Option<String>, // Added pattern field
 }
 
-pub fn load_config(path: &str) -> Result<Rule, Box<dyn std::error::Error>> {
+pub fn load_config(path: &str) -> Result<Rule> {
     let content = fs::read_to_string(path)?;
     let rule: Rule = serde_yaml::from_str(&content)?;
     Ok(rule)
