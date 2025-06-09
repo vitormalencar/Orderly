@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::actions::get_file_name;
+
 pub trait Condition {
     fn evaluate(&self, path: &Path) -> bool;
 }
@@ -18,7 +20,10 @@ pub struct NameEquals {
 
 impl Condition for NameEquals {
     fn evaluate(&self, path: &Path) -> bool {
-        path.file_name().unwrap().to_str().unwrap() == self.name
+        match get_file_name(path) {
+            Ok(file_name) => file_name == self.name,
+            Err(_) => false,
+        }
     }
 }
 
@@ -42,22 +47,31 @@ pub struct NameContains {
 
 impl Condition for NameContains {
     fn evaluate(&self, path: &Path) -> bool {
-        path.to_str().unwrap().contains(&self.substring)
+        match path.to_str() {
+            Some(path) => path.contains(&self.substring),
+            None => false,
+        }
     }
 }
 
-pub fn create_condition(condition_type: &str, value: &str) -> Box<dyn Condition> {
-    match condition_type {
-        "always" => Box::new(Always),
-        "name" => Box::new(NameEquals {
-            name: value.to_string(),
-        }),
-        "extension" => Box::new(ExtensionIn {
-            extensions: value.split(',').map(|s| s.trim().to_string()).collect(),
-        }),
-        "name_contains" => Box::new(NameContains {
-            substring: value.to_string(),
-        }),
-        _ => panic!("Unknown condition type: {}", condition_type),
+impl From<&crate::config::Condition> for Box<dyn Condition> {
+    fn from(condition: &crate::config::Condition) -> Self {
+        match condition.condition_type.as_str() {
+            "always" => Box::new(Always),
+            "name" => Box::new(NameEquals {
+                name: condition.value.clone(),
+            }),
+            "extension" => Box::new(ExtensionIn {
+                extensions: condition
+                    .value
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .collect(),
+            }),
+            "name_contains" => Box::new(NameContains {
+                substring: condition.value.clone(),
+            }),
+            _ => panic!("Unknown condition type: {}", condition.condition_type),
+        }
     }
 }
