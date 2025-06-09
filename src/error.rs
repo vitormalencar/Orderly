@@ -28,6 +28,9 @@ pub enum OrderlyError {
 
     #[error("IO error: {0}")]
     IoError(std::io::Error),
+
+    #[error("Trash error: {0}")]
+    TrashError(trash::Error),
 }
 
 impl<T> From<OrderlyError> for Result<T, Box<dyn std::error::Error>> {

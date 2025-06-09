@@ -3,9 +3,7 @@ use crate::Result;
 use chrono::prelude::*;
 use log::info;
 use std::fs;
-use std::io::{self};
 use std::path::Path;
-use trash;
 
 fn ensure_directory_exists(dest_path: &Path) -> Result<()> {
     if !dest_path.exists() {
@@ -57,7 +55,7 @@ pub fn move_file(src_path: &Path, dest_path: &str) -> Result<()> {
 }
 
 pub fn delete_file(path: &Path) -> Result<()> {
-    trash::delete(path).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    trash::delete(path).map_err(OrderlyError::TrashError)?;
     info!("Deleted file {}", path.display());
     Ok(())
 }
