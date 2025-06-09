@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::actions::get_file_name;
+
 pub trait Condition {
     fn evaluate(&self, path: &Path) -> bool;
 }
@@ -18,7 +20,10 @@ pub struct NameEquals {
 
 impl Condition for NameEquals {
     fn evaluate(&self, path: &Path) -> bool {
-        path.file_name().unwrap().to_str().unwrap() == self.name
+        match get_file_name(path) {
+            Ok(file_name) => file_name == self.name,
+            Err(_) => false,
+        }
     }
 }
 
@@ -42,7 +47,10 @@ pub struct NameContains {
 
 impl Condition for NameContains {
     fn evaluate(&self, path: &Path) -> bool {
-        path.to_str().unwrap().contains(&self.substring)
+        match path.to_str() {
+            Some(path) => path.contains(&self.substring),
+            None => false,
+        }
     }
 }
 

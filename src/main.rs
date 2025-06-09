@@ -27,7 +27,7 @@ static HOME: &str = env!("USERPROFILE");
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> Result<()> {
-    SimpleLogger::init(LevelFilter::Info, LogConfig::default()).unwrap();
+    SimpleLogger::init(LevelFilter::Info, LogConfig::default())?;
 
     let matches = App::new("Orderly")
         .version("1.0")
@@ -39,28 +39,39 @@ fn main() -> Result<()> {
         .get_matches();
 
     if matches.is_present("init") {
-        init_orderly();
+        if let Err(e) = init_orderly() {
+            error!("Failed to initialize Orderly: {}", e);
+            return Err(e.into());
+        }
     }
 
     if matches.is_present("run") {
-        run_orderly();
+        if let Err(e) = run_orderly() {
+            error!("Failed to run Orderly: {}", e);
+            return Err(e.into());
+        }
     }
 
     if matches.is_present("watch") {
-        watch_orderly()?;
+        if let Err(e) = watch_orderly() {
+            error!("Failed to watch Orderly: {}", e);
+            return Err(e.into());
+        }
     }
 
     Ok(())
 }
 
-fn init_orderly() {
+fn init_orderly() -> Result<()> {
     info!("Initializing Orderly...");
     if let Err(e) = config::create_example_rule() {
         error!("Failed to create example rule: {}", e);
+        return Err(e.into());
     }
+    Ok(())
 }
 
-fn run_orderly() {
+fn run_orderly() -> Result<()> {
     info!("Running Orderly...");
     let mut processed_files = HashSet::new();
     let mut file_movements = HashMap::new();
@@ -86,24 +97,32 @@ fn run_orderly() {
                 }
             }
         }
-        Err(e) => error!("Error loading config: {}", e),
+        Err(e) => {
+            error!("Error loading config: {}", e);
+            return Err(e);
+        }
     }
+    Ok(())
 }
 
 fn watch_orderly() -> Result<()> {
     info!("Running initial organization...");
-    run_orderly(); // Perform the initial run
+    run_orderly()?; // Perform the initial run
 
     info!("Watching for changes...");
 
     let config = config::load_config("rules/example.yaml")?;
 
     let (tx, rx) = channel();
-    let mut watcher = recommended_watcher(move |res| tx.send(res).unwrap())?;
+    let mut watcher = recommended_watcher(move |res| {
+        if let Err(err) = tx.send(res) {
+            error!("failed to notify watcher: {err:?}");
+        }
+    })?;
 
     for folder in config.folders {
         let path = Path::new(&folder.path);
-        watcher.watch(path, RecursiveMode::Recursive).unwrap();
+        watcher.watch(path, RecursiveMode::Recursive)?;
     }
 
     loop {
@@ -113,7 +132,7 @@ fn watch_orderly() -> Result<()> {
                     for path in paths {
                         info!("File change detected: {:?}, {:?}", path, kind);
                     }
-                    run_orderly();
+                    run_orderly()?;
                 }
                 Err(e) => error!("Watch error: {:?}", e),
             },
@@ -142,7 +161,11 @@ fn handle_conditions(
     for entry in entries {
         if let Ok(entry) = entry {
             let src_path = entry.path();
-            let src_path_str = src_path.to_str().unwrap().to_string();
+            let Some(src_path_str) = src_path.to_str() else {
+                warn!("Skipping path: {}", src_path.display());
+                continue;
+            };
+            let src_path_str = src_path_str.to_string();
 
             if processed_files.contains(&src_path_str) {
                 info!("Skipping already processed file: {}", src_path.display());
@@ -165,7 +188,12 @@ fn handle_conditions(
                     }
 
                     for action in &rule.actions {
-                        execute_action(&src_path, action, processed_files, file_movements);
+                        if let Err(err) =
+                            execute_action(&src_path, action, processed_files, file_movements)
+                        {
+                            warn!("Failed to execute action: {}", err);
+                            log_error(&format!("Failed to execute action: {}", err));
+                        }
                     }
                 }
             }
@@ -179,20 +207,23 @@ fn execute_action(
     action: &Action,
     processed_files: &mut HashSet<String>,
     file_movements: &mut HashMap<String, usize>,
-) {
+) -> Result<()> {
     match action.action_type.as_str() {
         "delete" => handle_delete(src_path),
         "move" => handle_move(src_path, action, processed_files, file_movements),
         "copy" => handle_copy(src_path, action, processed_files, file_movements),
         "sort_by_date" => handle_sort_by_date(src_path, action, processed_files),
-        _ => log_error(&format!("Unknown action type: {}", action.action_type)),
+        _ => OrderlyError::InvalidActionType(action.action_type.clone()).into(),
     }
 }
 
-fn handle_delete(src_path: &Path) {
+fn handle_delete(src_path: &Path) -> Result<()> {
     info!("Deleting file: {}", src_path.display());
-    if let Err(e) = actions::delete_file(src_path.to_str().unwrap()) {
+    if let Err(e) = actions::delete_file(src_path) {
         log_error(&format!("Failed to delete file: {}", e));
+        Err(e.into())
+    } else {
+        Ok(())
     }
 }
 
@@ -201,17 +232,22 @@ fn handle_move(
     action: &Action,
     processed_files: &mut HashSet<String>,
     file_movements: &mut HashMap<String, usize>,
-) {
-    let dest_path = action.path.as_ref().unwrap().replace("~", &HOME);
+) -> Result<()> {
+    let dest_path = match action.path {
+        Some(ref path) => path.replace("~", &HOME),
+        None => return OrderlyError::InvalidPath(action.path.clone()).into(),
+    };
 
     info!("Moving file from {} to {}", src_path.display(), dest_path);
-    if let Err(e) = actions::move_file(src_path.to_str().unwrap(), &dest_path) {
+    if let Err(e) = actions::move_file(src_path, &dest_path) {
         log_error(&format!("Failed to move file: {}", e));
+        Err(e.into())
     } else {
         processed_files.insert(dest_path.clone());
         let dest_path_str = dest_path.to_string();
         let movement_count = file_movements.entry(dest_path_str).or_insert(0);
         *movement_count += 1;
+        Ok(())
     }
 }
 
@@ -220,37 +256,58 @@ fn handle_copy(
     action: &Action,
     processed_files: &mut HashSet<String>,
     file_movements: &mut HashMap<String, usize>,
-) {
-    let dest_path = action
-        .path
-        .as_ref()
-        .unwrap()
-        .replace("~", &env::var("HOME").unwrap());
+) -> Result<()> {
+    let dest_path = match action.path {
+        Some(ref path) => path.replace("~", &HOME),
+        None => return OrderlyError::InvalidPath(action.path.clone()).into(),
+    };
+
     info!("Copying file from {} to {}", src_path.display(), dest_path);
-    if let Err(e) = actions::copy_file(src_path.to_str().unwrap(), &dest_path) {
+    if let Err(e) = actions::copy_file(src_path, &dest_path) {
         log_error(&format!("Failed to copy file: {}", e));
+        Err(e.into())
     } else {
         processed_files.insert(dest_path.clone());
         let dest_path_str = dest_path.to_string();
         let movement_count = file_movements.entry(dest_path_str).or_insert(0);
         *movement_count += 1;
+        Ok(())
     }
 }
 
-fn handle_sort_by_date(src_path: &Path, action: &Action, processed_files: &mut HashSet<String>) {
-    let base_path = action.path.as_ref().unwrap().replace("~", &HOME);
+fn handle_sort_by_date(
+    src_path: &Path,
+    action: &Action,
+    processed_files: &mut HashSet<String>,
+) -> Result<()> {
+    let base_path = match action.path {
+        Some(ref path) => path.replace("~", &HOME),
+        None => return OrderlyError::InvalidPath(action.path.clone()).into(),
+    };
 
-    let pattern = action.pattern.as_ref().unwrap();
+    let pattern = match action.pattern {
+        Some(ref pattern) => pattern,
+        None => return OrderlyError::InvalidPattern(None).into(),
+    };
+
     info!(
         "Sorting file by date from {} to {}",
         src_path.display(),
         base_path
     );
-    if let Err(e) = actions::sort_file_by_date(src_path.to_str().unwrap(), &base_path, pattern) {
+    if let Err(e) = actions::sort_file_by_date(src_path, &base_path, pattern) {
         log_error(&format!("Failed to sort file by date: {}", e));
+        Err(e.into())
     } else {
-        let dest_path = Path::new(&base_path).join(src_path.file_name().unwrap());
-        processed_files.insert(dest_path.to_str().unwrap().to_string());
+        let dest_path = Path::new(&base_path).join(match src_path.file_name() {
+            Some(path) => path,
+            None => {
+                return OrderlyError::InvalidFile(src_path.to_str().map(|s| s.to_string())).into()
+            }
+        });
+
+        processed_files.insert(dest_path.to_string_lossy().into_owned());
+        Ok(())
     }
 }
 
@@ -260,6 +317,7 @@ fn log_error(message: &str) {
         .append(true)
         .create(true)
         .open(log_file_path)
-        .unwrap();
-    writeln!(file, "{}", message).unwrap();
+        .expect("Failed to open error log file");
+
+    writeln!(file, "{}", message).ok();
 }

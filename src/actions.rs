@@ -1,7 +1,9 @@
+use crate::error::OrderlyError;
+use crate::Result;
 use chrono::prelude::*;
 use log::info;
 use std::fs;
-use std::io::{self, Result};
+use std::io::{self};
 use std::path::Path;
 use trash;
 
@@ -33,37 +35,41 @@ fn move_or_fallback(src: &Path, dest: &Path) -> Result<()> {
     }
 }
 
-pub fn move_file(src: &str, dest: &str) -> Result<()> {
-    let src_path = Path::new(src);
-    let mut dest_path = Path::new(dest).to_path_buf();
+pub fn get_file_name(src_path: &Path) -> Result<String> {
+    match src_path.file_name() {
+        Some(path) => Ok(path.to_string_lossy().into_owned()),
+        None => Err(OrderlyError::InvalidFile(src_path.to_str().map(|s| s.to_string())).into()),
+    }
+}
+
+pub fn move_file(src_path: &Path, dest_path: &str) -> Result<()> {
+    let mut dest_path = Path::new(dest_path).to_path_buf();
 
     // Ensure the destination directory exists
     ensure_directory_exists(&dest_path)?;
 
     // Append the file name to the destination path if it's a directory
     if dest_path.is_dir() {
-        dest_path = dest_path.join(src_path.file_name().unwrap());
+        dest_path = dest_path.join(get_file_name(src_path)?);
     }
     // Try moving the file, falling back to copy and remove if necessary
     move_or_fallback(src_path, &dest_path)
 }
 
-pub fn delete_file(path: &str) -> Result<()> {
-    trash::delete(Path::new(path))
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-    info!("Deleted file {}", path);
+pub fn delete_file(path: &Path) -> Result<()> {
+    trash::delete(path).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    info!("Deleted file {}", path.display());
     Ok(())
 }
 
-pub fn copy_file(src: &str, dest: &str) -> Result<()> {
-    let src_path = Path::new(src);
+pub fn copy_file(src_path: &Path, dest: &str) -> Result<()> {
     let mut dest_path = Path::new(dest).to_path_buf();
 
     ensure_directory_exists(&dest_path)?;
 
     // Append the file name to the destination path if it's a directory
     if dest_path.is_dir() {
-        dest_path = dest_path.join(src_path.file_name().unwrap());
+        dest_path = dest_path.join(get_file_name(src_path)?);
     }
     // Copy
     fs::copy(src_path, &dest_path)?;
@@ -75,8 +81,7 @@ pub fn copy_file(src: &str, dest: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn sort_file_by_date(src: &str, base_dest: &str, pattern: &str) -> Result<()> {
-    let src_path = Path::new(src);
+pub fn sort_file_by_date(src_path: &Path, base_dest: &str, pattern: &str) -> Result<()> {
     let metadata = fs::metadata(src_path)?;
     let modified_time = metadata.modified()?;
     let datetime: DateTime<Local> = modified_time.into();
@@ -86,6 +91,6 @@ pub fn sort_file_by_date(src: &str, base_dest: &str, pattern: &str) -> Result<()
 
     ensure_directory_exists(&dest_path)?;
 
-    let final_dest = dest_path.join(src_path.file_name().unwrap());
+    let final_dest = dest_path.join(get_file_name(src_path)?);
     move_or_fallback(src_path, &final_dest)
 }

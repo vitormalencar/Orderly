@@ -176,7 +176,8 @@ pub fn create_example_rule() -> std::io::Result<()> {
         ],
     };
 
-    let yaml = serde_yaml::to_string(&example_rule).unwrap();
+    let yaml =
+        serde_yaml::to_string(&example_rule).expect("Failed to convert example rule to YAML");
     let mut file = fs::File::create("rules/example.yaml")?;
     file.write_all(yaml.as_bytes())?;
     Ok(())
