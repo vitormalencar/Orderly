@@ -54,18 +54,24 @@ impl Condition for NameContains {
     }
 }
 
-pub fn create_condition(condition_type: &str, value: &str) -> Box<dyn Condition> {
-    match condition_type {
-        "always" => Box::new(Always),
-        "name" => Box::new(NameEquals {
-            name: value.to_string(),
-        }),
-        "extension" => Box::new(ExtensionIn {
-            extensions: value.split(',').map(|s| s.trim().to_string()).collect(),
-        }),
-        "name_contains" => Box::new(NameContains {
-            substring: value.to_string(),
-        }),
-        _ => panic!("Unknown condition type: {}", condition_type),
+impl From<&crate::config::Condition> for Box<dyn Condition> {
+    fn from(condition: &crate::config::Condition) -> Self {
+        match condition.condition_type.as_str() {
+            "always" => Box::new(Always),
+            "name" => Box::new(NameEquals {
+                name: condition.value.clone(),
+            }),
+            "extension" => Box::new(ExtensionIn {
+                extensions: condition
+                    .value
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .collect(),
+            }),
+            "name_contains" => Box::new(NameContains {
+                substring: condition.value.clone(),
+            }),
+            _ => panic!("Unknown condition type: {}", condition.condition_type),
+        }
     }
 }

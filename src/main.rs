@@ -2,7 +2,6 @@ mod actions;
 mod conditions;
 mod config;
 mod error;
-use crate::conditions::create_condition;
 use crate::config::{Action, FolderRule};
 use crate::error::OrderlyError;
 
@@ -158,6 +157,12 @@ fn handle_conditions(
         msg
     })?;
 
+    let conditions = rule
+        .conditions
+        .iter()
+        .map(|condition| condition.into())
+        .collect::<Vec<Box<dyn conditions::Condition>>>();
+
     for entry in entries {
         if let Ok(entry) = entry {
             let src_path = entry.path();
@@ -172,8 +177,7 @@ fn handle_conditions(
                 continue;
             }
 
-            for condition in &rule.conditions {
-                let cond = create_condition(&condition.condition_type, &condition.value);
+            for cond in &conditions {
                 if cond.evaluate(&src_path) {
                     processed_files.insert(src_path_str.clone());
 
