@@ -17,6 +17,11 @@ use std::sync::mpsc::channel;
 
 const MAX_MOVEMENTS: usize = 10;
 
+#[cfg(target_os = "macos")]
+static HOME: &str = env!("HOME");
+#[cfg(target_os = "windows")]
+static HOME: &str = env!("USERPROFILE");
+
 fn main() {
     SimpleLogger::init(LevelFilter::Info, LogConfig::default()).unwrap();
 
@@ -198,11 +203,8 @@ fn handle_move(
     processed_files: &mut HashSet<String>,
     file_movements: &mut HashMap<String, usize>,
 ) {
-    let dest_path = action
-        .path
-        .as_ref()
-        .unwrap()
-        .replace("~", &env::var("HOME").unwrap());
+    let dest_path = action.path.as_ref().unwrap().replace("~", &HOME);
+
     info!("Moving file from {} to {}", src_path.display(), dest_path);
     if let Err(e) = actions::move_file(src_path.to_str().unwrap(), &dest_path) {
         log_error(&format!("Failed to move file: {}", e));
@@ -237,11 +239,8 @@ fn handle_copy(
 }
 
 fn handle_sort_by_date(src_path: &Path, action: &Action, processed_files: &mut HashSet<String>) {
-    let base_path = action
-        .path
-        .as_ref()
-        .unwrap()
-        .replace("~", &env::var("HOME").unwrap());
+    let base_path = action.path.as_ref().unwrap().replace("~", &HOME);
+
     let pattern = action.pattern.as_ref().unwrap();
     info!(
         "Sorting file by date from {} to {}",
