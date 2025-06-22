@@ -2,6 +2,13 @@ mod actions;
 mod conditions;
 mod config;
 mod error;
+
+#[cfg(test)]
+mod actions_tests;
+
+#[cfg(test)]
+mod conditions_tests;
+
 use crate::config::{Action, FolderRule};
 use crate::error::OrderlyError;
 
@@ -19,9 +26,9 @@ use std::sync::mpsc::channel;
 const MAX_MOVEMENTS: usize = 10;
 
 #[cfg(target_os = "macos")]
-static HOME: &str = env!("HOME");
+pub const HOME: &str = env!("HOME");
 #[cfg(target_os = "windows")]
-static HOME: &str = env!("USERPROFILE");
+pub const HOME: &str = env!("USERPROFILE");
 
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
