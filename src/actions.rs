@@ -2,7 +2,7 @@ use chrono::prelude::*;
 use log::info;
 use std::fs;
 use std::io::{self, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use trash;
 
 fn ensure_directory_exists(dest_path: &Path) -> Result<()> {
@@ -75,17 +75,24 @@ pub fn copy_file(src: &str, dest: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn sort_file_by_date(src: &str, base_dest: &str, pattern: &str) -> Result<()> {
-    let src_path = Path::new(src);
-    let metadata = fs::metadata(src_path)?;
+/// Compute where `sort_file_by_date` would move `src` to, *without* touching
+/// the filesystem. Shared with the dry-run preview so both paths agree.
+pub fn sort_by_date_destination(src: &Path, base_dest: &str, pattern: &str) -> Result<PathBuf> {
+    let metadata = fs::metadata(src)?;
     let modified_time = metadata.modified()?;
     let datetime: DateTime<Local> = modified_time.into();
-
     let formatted_date = datetime.format(pattern).to_string();
-    let dest_path = Path::new(base_dest).join(formatted_date);
+    let file_name = src.file_name().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, "source path has no file name")
+    })?;
+    Ok(Path::new(base_dest).join(formatted_date).join(file_name))
+}
 
-    ensure_directory_exists(&dest_path)?;
-
-    let final_dest = dest_path.join(src_path.file_name().unwrap());
+pub fn sort_file_by_date(src: &str, base_dest: &str, pattern: &str) -> Result<()> {
+    let src_path = Path::new(src);
+    let final_dest = sort_by_date_destination(src_path, base_dest, pattern)?;
+    if let Some(parent) = final_dest.parent() {
+        ensure_directory_exists(parent)?;
+    }
     move_or_fallback(src_path, &final_dest)
 }

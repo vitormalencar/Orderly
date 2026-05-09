@@ -1,84 +1,575 @@
+# =============================================================================
+# Orderly Sandbox Rules
+# -----------------------------------------------------------------------------
+# Layout:
+#   1. `_extensions` — reusable YAML anchors for file-type groups. This key is
+#      not part of the Rule schema and is ignored by the loader; it only exists
+#      so rules below can reference a single source of truth via `*anchor`.
+#   2. `folders`     — pipeline from inbox (Desktop) to typed destinations.
+#      Rules inside each folder run top-to-bottom; earlier rules win, so
+#      narrower name matches are listed before broader extension fallbacks.
+#
+# Documents triage (Downloads → Documents/Inbox → post-process):
+#   New document-like saves land in `Documents/Inbox` only. Orderly moves them
+#   into `Documents/<Function>/<YYYY>/<retention>/` using `sort_by_date` with
+#   multi-segment patterns (e.g. "%Y/invoices"). First matching rule wins; if
+#   nothing matches, extension-based fallbacks send files to General, Work,
+#   Ebooks, Design, or 3D with `YYYY/MM - Mmm` month folders (same idea as
+#   Pictures/Movies). Rename important originals to `YYYY-MM-DD_description.ext`
+#   by hand — the engine does not rename files yet.
+#   3. Aspirational block (commented, at the bottom) — future schema ideas
+#      that require engine changes in src/conditions.rs and src/actions.rs.
+#
+# Supported today (see src/config.rs, src/conditions.rs, src/actions.rs):
+#   conditions: always | name | extension | name_contains | is_duplicate |
+#               older_than
+#   actions:    move | copy | delete | sort_by_date
+#   match_type: "all" (only value currently honored)
+#
+# `older_than` compares file mtime against `now() - duration`. Duration syntax:
+#   Ns (seconds), Nm (minutes), Nh (hours), Nd (days), Nw (weeks).
+#   Examples: "30d", "14d", "2w", "6h". Months/years are intentionally not
+#   supported to avoid ambiguity.
+#
+# `is_duplicate` computes a blake3 content hash for every file in the folder
+# (size-bucketed, so unique-sized files are never read). The oldest file with a
+# given hash is kept as canonical; later duplicates evaluate true. Opt in by
+# using `condition_type: is_duplicate` in a rule; folders without the condition
+# pay zero hashing cost.
+# =============================================================================
+
 name: Orderly Sandbox Rules
 description: Rules for organizing files in the sandbox environment
+
+# ----- Reusable extension groups (ignored by the loader) --------------------
+_extensions:
+  music: &ext_music aac,aif,aiff,alac,ape,flac,m4a,m4b,mp3,ogg,opus,wav,wma
+  video: &ext_video 3gp,avi,flv,m4v,mkv,mov,mp4,mpeg,mpg,ogv,webm,wmv
+  images: &ext_images avif,bmp,gif,heic,ico,jpeg,jpg,png,svg,tif,tiff,webp,HEIC
+  documents: &ext_documents md,pdf,rtf,tex,txt
+  office: &ext_office doc,docx,key,numbers,odp,ods,odt,pages,ppt,pptx,xls,xlsx,csv,xlsm,xlsxm
+  ebooks: &ext_ebooks azw,azw3,djvu,epub,fb2,mobi
+  archives: &ext_archives 7z,bz2,gz,rar,tar,tgz,xz,zip
+  installers: &ext_installers dmg,exe,iso,msi,pkg
+  design: &ext_design ai,fig,psd,sketch,xd
+  fonts: &ext_fonts otf,ttf,woff,woff2
+  code: &ext_code c,cpp,css,go,h,hpp,html,java,js,json,jsx,py,rs,scss,sh,toml,ts,tsx,xml,yaml,yml
+  threeD: &ext_3d 3ds,blend,dae,fbx,glb,gltf,obj,stl
+  # Everything the Downloads fan-out sends to Documents/Inbox for unified triage.
+  inbox_all: &ext_inbox_all md,pdf,rtf,tex,txt,doc,docx,key,numbers,odp,ods,odt,pages,ppt,pptx,xls,xlsx,csv,xlsm,xlsxm,azw,azw3,djvu,epub,fb2,mobi,ai,fig,psd,sketch,xd,3ds,blend,dae,fbx,glb,gltf,obj,stl
+
+# ----- Folder pipeline ------------------------------------------------------
 folders:
-- path: test_folder/Desktop
-  match_type: all
-  rules:
-  - name: Move all files to Downloads
-    conditions:
-    - condition_type: always
-      value: ''
-    actions:
-    - action_type: move
-      path: test_folder/Downloads
-      pattern: null
-- path: test_folder/Downloads
-  match_type: all
-  rules:
-  - name: Move music files to Music folder
-    conditions:
-    - condition_type: extension
-      value: mp3,flac,wav,ogg,m4a,wma,aac,aiff,aif
-    actions:
-    - action_type: move
-      path: test_folder/Music
-      pattern: null
-  - name: Move video files to Videos folder
-    conditions:
-    - condition_type: extension
-      value: mp4,mov,avi,wmv,mkv
-    actions:
-    - action_type: move
-      path: test_folder/Videos
-      pattern: null
-  - name: Move document files to Documents folder
-    conditions:
-    - condition_type: extension
-      value: pdf,txt,doc,docx,xls,xlsx,ppt,pptx
-    actions:
-    - action_type: move
-      path: test_folder/Documents
-      pattern: null
-  - name: Move picture files to Pictures folder
-    conditions:
-    - condition_type: extension
-      value: jpg,png,gif
-    actions:
-    - action_type: move
-      path: test_folder/Pictures
-      pattern: null
-- path: test_folder/Pictures
-  match_type: all
-  rules:
-  - name: Move wallpapers to Wallpapers subfolder
-    conditions:
-    - condition_type: name_contains
-      value: wallpaper
-    actions:
-    - action_type: move
-      path: test_folder/Pictures/Wallpapers
-      pattern: null
-  - name: Move clearshots to Wallpapers subfolder
-    conditions:
-    - condition_type: name_contains
-      value: clearshot
-    actions:
-    - action_type: move
-      path: test_folder/Pictures/Wallpapers
-      pattern: null
-  - name: Move screenshots to Screenshots subfolder
-    conditions:
-    - condition_type: name_contains
-      value: screenshot
-    actions:
-    - action_type: move
-      path: test_folder/Pictures/Screenshots
-      pattern: null
-  - name: Sort images into year/month subfolders
-    conditions:
-    - condition_type: extension
-      value: jpg,png,gif
-    actions:
-    - action_type: sort_by_date
-      path: test_folder/Pictures
-      pattern: '%Y/%b'
+  # Desktop is an inbox: sweep everything into Downloads so the Downloads
+  # rules below can classify in one place.
+  - path: /Users/vitoralencar/Desktop
+    match_type: all
+    rules:
+      - name: Sweep Desktop into Downloads
+        conditions:
+          - condition_type: always
+            value: ""
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Downloads
+
+  # Downloads is the fan-out point. Order matters: dedup first so duplicates
+  # never reach the categorized destinations below, then trash installers,
+  # then archives, then media/docs/code.
+  - path: /Users/vitoralencar/Downloads
+    match_type: all
+    rules:
+      - name: Trash content-duplicate files
+        conditions:
+          - condition_type: is_duplicate
+            value: ""
+        actions:
+          - action_type: delete
+
+      - name: Trash installer images and apps
+        conditions:
+          - condition_type: extension
+            value: *ext_installers
+        actions:
+          - action_type: delete
+
+      - name: Park archives for later triage
+        conditions:
+          - condition_type: extension
+            value: *ext_archives
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Downloads/Archives
+
+      - name: Music to ~/Music
+        conditions:
+          - condition_type: extension
+            value: *ext_music
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Music
+
+      # macOS default video folder is ~/Movies, not ~/Videos.
+      - name: Video to ~/Movies
+        conditions:
+          - condition_type: extension
+            value: *ext_video
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Movies
+
+      - name: Images to ~/Pictures
+        conditions:
+          - condition_type: extension
+            value: *ext_images
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Pictures
+
+      # Unified document inbox: plain, Office, ebooks, design, and 3D land here
+      # first; `folders: Documents/Inbox` below routes into Function/Year/retention.
+      - name: Document-like files to ~/Documents/Inbox
+        conditions:
+          - condition_type: extension
+            value: *ext_inbox_all
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Documents/Inbox
+
+      - name: Source files to ~/Documents/Developer/Inbox
+        conditions:
+          - condition_type: extension
+            value: *ext_code
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Documents/Developer/Inbox
+
+  # Documents/Inbox post-processing — routes into Documents/<Function>/<YYYY>/<retention>/.
+  # Rule order: dedup → keyword sort_by_date → stale archive → extension fallbacks.
+  - path: /Users/vitoralencar/Documents/Inbox
+    match_type: all
+    rules:
+      - name: Trash content-duplicate files in Documents/Inbox
+        conditions:
+          - condition_type: is_duplicate
+            value: ""
+        actions:
+          - action_type: delete
+
+      # --- Keyword routes (narrow first) → sort_by_date with fixed retention segment ---
+
+      - name: Finance — invoices by filename
+        conditions:
+          - condition_type: name_contains
+            value: invoice
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Finance
+            pattern: "%Y/invoices"
+
+      - name: Finance — receipts by filename
+        conditions:
+          - condition_type: name_contains
+            value: receipt
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Finance
+            pattern: "%Y/receipts"
+
+      - name: Finance — tax forms (1099)
+        conditions:
+          - condition_type: name_contains
+            value: "1099"
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Finance
+            pattern: "%Y/tax"
+
+      - name: Finance — tax (W-2)
+        conditions:
+          - condition_type: name_contains
+            value: W-2
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Finance
+            pattern: "%Y/tax"
+
+      - name: Finance — tax (W2)
+        conditions:
+          - condition_type: name_contains
+            value: W2
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Finance
+            pattern: "%Y/tax"
+
+      - name: Finance — tax (general keyword)
+        conditions:
+          - condition_type: name_contains
+            value: tax
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Finance
+            pattern: "%Y/tax"
+
+      - name: Finance — payroll
+        conditions:
+          - condition_type: name_contains
+            value: payroll
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Finance
+            pattern: "%Y/payroll"
+
+      - name: Finance — payslip
+        conditions:
+          - condition_type: name_contains
+            value: payslip
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Finance
+            pattern: "%Y/payroll"
+
+      - name: Legal — contracts
+        conditions:
+          - condition_type: name_contains
+            value: contract
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Legal
+            pattern: "%Y/contracts"
+
+      - name: Legal — NDA
+        conditions:
+          - condition_type: name_contains
+            value: NDA
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Legal
+            pattern: "%Y/nda"
+
+      - name: Legal — lease
+        conditions:
+          - condition_type: name_contains
+            value: lease
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Legal
+            pattern: "%Y/lease"
+
+      - name: HR — onboarding
+        conditions:
+          - condition_type: name_contains
+            value: onboarding
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/HR
+            pattern: "%Y/onboarding"
+
+      - name: Personal — insurance
+        conditions:
+          - condition_type: name_contains
+            value: insurance
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Personal
+            pattern: "%Y/insurance"
+
+      - name: Personal — medical
+        conditions:
+          - condition_type: name_contains
+            value: medical
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Personal
+            pattern: "%Y/medical"
+
+      - name: Personal — resume or CV
+        conditions:
+          - condition_type: name_contains
+            value: resume
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Personal
+            pattern: "%Y/career"
+
+      - name: Personal — CV (abbrev)
+        conditions:
+          - condition_type: name_contains
+            value: "_CV"
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Personal
+            pattern: "%Y/career"
+
+      # --- Stale inbox: very old files that did not match a keyword above ---
+
+      - name: Archive stale inbox files (mtime older than 2 years)
+        conditions:
+          - condition_type: older_than
+            value: 730d
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/_Archive
+            pattern: "%Y/cold-inbox"
+
+      # --- Extension fallbacks (month folders align with Pictures/Movies) ---
+
+      - name: Ebooks — sort into library tree
+        conditions:
+          - condition_type: extension
+            value: *ext_ebooks
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Ebooks
+            pattern: "%Y/%m - %b"
+
+      - name: Design — sort by month
+        conditions:
+          - condition_type: extension
+            value: *ext_design
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Design
+            pattern: "%Y/%m - %b"
+
+      - name: 3D assets — sort by month
+        conditions:
+          - condition_type: extension
+            value: *ext_3d
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/3D
+            pattern: "%Y/%m - %b"
+
+      - name: Office files — sort into Work by month
+        conditions:
+          - condition_type: extension
+            value: *ext_office
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/Work
+            pattern: "%Y/%m - %b"
+
+      - name: Plain documents — sort into General by month
+        conditions:
+          - condition_type: extension
+            value: *ext_documents
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Documents/General
+            pattern: "%Y/%m - %b"
+
+  # Pictures post-processing. Dedup first, then name-based moves, then the
+  # date-based fallback sorter sweeps everything else.
+  - path: /Users/vitoralencar/Pictures
+    match_type: all
+    rules:
+      - name: Trash content-duplicate files
+        conditions:
+          - condition_type: is_duplicate
+            value: ""
+        actions:
+          - action_type: delete
+
+      - name: Screenshots to Pictures/Screenshots
+        conditions:
+          - condition_type: name_contains
+            value: screenshot
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Pictures/Screenshots
+
+      - name: Unsplash images to Pictures/Wallpapers
+        conditions:
+          - condition_type: name_contains
+            value: unsplash
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Pictures/Wallpapers
+
+      - name: Pexels images to Pictures/Wallpapers
+        conditions:
+          - condition_type: name_contains
+            value: pexels
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Pictures/Wallpapers
+
+      - name: Explicit wallpapers to Pictures/Wallpapers
+        conditions:
+          - condition_type: name_contains
+            value: wallpaper
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Pictures/Wallpapers
+
+      # CleanShot X writes mixed-case "CleanShot" in filenames; this match is
+      # case-sensitive (see src/conditions.rs NameContains).
+      - name: CleanShot captures to Pictures/CleanShot
+        conditions:
+          - condition_type: name_contains
+            value: CleanShot
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Pictures/CleanShot
+
+      # Fallback: anything still loose in ~/Pictures gets bucketed by year/month.
+      # Month folders use "MM - Mmm" so they sort numerically in Finder.
+      - name: Sort remaining images into Photos/YYYY/MM - MMM
+        conditions:
+          - condition_type: extension
+            value: *ext_images
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Pictures/Photos
+            pattern: "%Y/%m - %b"
+
+  # Movies post-processing. Same shape as Pictures: dedup, then carve out the
+  # folders the user wants to schedule cleanups against (CleanShot, WhatsApp),
+  # then sort the remainder by year/month into a Library tree.
+  - path: /Users/vitoralencar/Movies
+    match_type: all
+    rules:
+      - name: Trash content-duplicate files
+        conditions:
+          - condition_type: is_duplicate
+            value: ""
+        actions:
+          - action_type: delete
+
+      # CleanShot X screen recordings: "CleanShot 2024-03-15 at 10.23.45.mp4".
+      - name: CleanShot captures to Movies/CleanShot
+        conditions:
+          - condition_type: name_contains
+            value: CleanShot
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Movies/CleanShot
+
+      # iOS export prefix: "WhatsApp Video 2024-03-15 at ...".
+      - name: WhatsApp videos (iOS) to Movies/WhatsApp
+        conditions:
+          - condition_type: name_contains
+            value: WhatsApp
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Movies/WhatsApp
+
+      # Android export: "VID-20240315-WA0001.mp4".
+      - name: WhatsApp videos (Android) to Movies/WhatsApp
+        conditions:
+          - condition_type: name_contains
+            value: -WA0
+        actions:
+          - action_type: move
+            path: /Users/vitoralencar/Movies/WhatsApp
+
+      # Fallback: anything still loose in ~/Movies gets bucketed by year/month.
+      # Kept separate from CleanShot/WhatsApp so scheduled cleanups can target
+      # those subfolders without touching the library.
+      # Month folders use "MM - Mmm" so they sort numerically in Finder.
+      - name: Sort remaining videos into Library/YYYY/MM - MMM
+        conditions:
+          - condition_type: extension
+            value: *ext_video
+        actions:
+          - action_type: sort_by_date
+            path: /Users/vitoralencar/Movies/Library
+            pattern: "%Y/%m - %b"
+
+  # Scheduled age-based cleanup of CleanShot captures. The Movies block above
+  # already routes CleanShot recordings here; this folder block then trashes
+  # anything that has sat around for more than 30 days.
+  - path: /Users/vitoralencar/Movies/CleanShot
+    match_type: all
+    rules:
+      - name: Trash CleanShot captures older than 30 days
+        conditions:
+          - condition_type: older_than
+            value: 30d
+        actions:
+          - action_type: delete
+
+  # Same idea for WhatsApp videos, but with a tighter 14-day window since
+  # chat videos tend to be more disposable.
+  - path: /Users/vitoralencar/Movies/WhatsApp
+    match_type: all
+    rules:
+      - name: Trash WhatsApp videos older than 14 days
+        conditions:
+          - condition_type: older_than
+            value: 14d
+        actions:
+          - action_type: delete
+# =============================================================================
+# ASPIRATIONAL — not yet implemented. This block is commented out on purpose;
+# it doubles as a design sketch for future work in src/conditions.rs and
+# src/actions.rs. Uncomment individual rules only after the engine supports
+# the referenced condition_type / action_type.
+# -----------------------------------------------------------------------------
+#
+# New conditions to add:
+#   - name_starts_with / name_ends_with / name_matches (regex)
+#   - name_contains_ci — case-insensitive variant of name_contains
+#   - size           — operators: lt, gt, between (e.g. ">100MB", "1GB..5GB")
+#   - date_modified  — `older_than` is now supported; `newer_than` is still
+#                      aspirational
+#   - date_created   — same operators as date_modified (not yet supported)
+#   - kind           — semantic family: image, audio, video, document, archive, code
+#   - path_depth     — int; useful with recursive folders
+#   - is_hidden      — boolean
+#
+# New boolean combinators (replace the current string `match_type: all|any`):
+#   - all_of: [ ... ]    # AND
+#   - any_of: [ ... ]    # OR
+#   - not:   { ... }     # NOT
+#
+# New actions:
+#   - rename    — template: "{name}_{yyyy}-{mm}-{dd}.{ext}"
+#   - archive   — zip into a destination directory
+#   - tag_add / tag_remove — macOS Finder tags via xattr com.apple.metadata:_kMDItemUserTags
+#   - trash     — explicit verb; today `delete` already routes through the `trash` crate
+#   - run       — exec a shell command with {path} substitution (opt-in, security-sensitive)
+#   - noop / log — useful while authoring rules in dry-run mode
+#
+# New folder-level options:
+#   - recursive: true|false
+#   - exclude: ["*.part", ".DS_Store", ...]
+#   - enabled: true|false
+#   - priority: int         # run order within a folder
+#   - stop_on_match: bool   # first matching rule wins instead of running all
+#
+# Example (DO NOT UNCOMMENT until the engine supports this schema):
+#
+# folders:
+#   - path: /Users/vitoralencar/Downloads
+#     recursive: false
+#     exclude: ["*.part", ".DS_Store", ".crdownload"]
+#     rules:
+#       - name: Delete stale installers
+#         match: all_of
+#         conditions:
+#           - extension: *ext_installers
+#           - date_modified: { older_than: 30d }
+#         actions:
+#           - trash: {}
+#
+#       - name: Archive large unused videos
+#         match: all_of
+#         conditions:
+#           - extension: *ext_video
+#           - size: { gt: 1GB }
+#           - not: { name_contains: keep }
+#         actions:
+#           - archive: { path: /Users/vitoralencar/Archive/Videos, format: zip }
+#           - tag_add: [archived, big]
+#
+#       - name: Timestamp screenshots on save
+#         match: all_of
+#         conditions:
+#           - name_matches: "^Screenshot .*\\.png$"
+#         actions:
+#           - rename: { pattern: "{yyyy}-{mm}-{dd}_{hh}{mn}_{name}.{ext}" }
+#           - move:   { path: /Users/vitoralencar/Pictures/Screenshots }
+# =============================================================================

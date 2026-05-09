@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+blake3 = "1.5"
 chrono = "0.4.38"
 clap = { version = "3.0", features = ["derive"] }
+comfy-table = "7"
 log = "0.4.22"
 notify = { version = "6.1.1", features = ["serde"] }
 
